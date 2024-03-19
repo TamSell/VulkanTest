@@ -2,6 +2,7 @@
 #include <iostream>
 #include "myWindow.h"
 #include <vector>
+#include <glm/glm.hpp>
 #include <string>
 #include <Windows.h>
 #include <stdio.h>
@@ -13,7 +14,7 @@ void SetupVulkanInstance(HWND windowHandle, VkInstance* instance, VkSurfaceKHR* 
 
 void SetupPhysicalDevice(VkInstance instance, VkPhysicalDevice* physicalDevice, VkDevice* device);
 
-void SetupSwapChain(VkDevice device, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, int* width, int* height, VkSwapchainKHR* swapChain, VkImage* presentImages, VkImageView** presentImageViews);
+void SetupSwapChain(VkDevice device, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, int* width, int* height, VkSwapchainKHR* swapChain, VkImage** presentImages, VkImageView** presentImageViews);
 
 void SetupRenderPass(VkDevice device, VkPhysicalDevice physicalDevice, int width, int height, VkImageView* presentImages, VkRenderPass* renderPass, VkFramebuffer** frameBuffers);
 
@@ -45,8 +46,8 @@ int main() {
 #endif
 
 	//Step 1 -- Initializing the Window handled in myWindow class
-	int width = 1080;
-	int height = 720;
+	int width = 2048;
+	int height = 1080;
 	myWindow* pWindow = new myWindow(width, height);
 	bool running = true;
 
@@ -64,13 +65,13 @@ int main() {
 	VkSwapchainKHR swapChain = NULL;
 	VkImage* presentImages = NULL;
 	VkImageView* presentImageViews = NULL;
-	//SetupSwapChain(device, physicalDevice, surface, &width, &height , &swapChain, presentImages, &presentImageViews);
+	SetupSwapChain(device, physicalDevice, surface, &width, &height , &swapChain, &presentImages, &presentImageViews);
 
 
 	//Step 5 -- Create Render Pass
 	VkRenderPass renderPass = NULL;
 	VkFramebuffer* frameBuffers = NULL;
-//	SetupRenderPass(device, physicalDevice, width, height, presentImageViews, &renderPass, &frameBuffers);
+	//SetupRenderPass(device, physicalDevice, width, height, presentImageViews, &renderPass, &frameBuffers);
 
 
 
@@ -293,4 +294,78 @@ void SetupPhysicalDevice(VkInstance instance, VkPhysicalDevice* outPhysicalDevic
 		std::cout << "Created Logical Device" << std::endl;
 
 
+}
+
+void SetupSwapChain(VkDevice device, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, int* width, int* height, VkSwapchainKHR* swapChain, VkImage** presentImages, VkImageView** presentImageViews)
+{
+	VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
+
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities);
+
+	VkExtent2D surfaceResolution = surfaceCapabilities.currentExtent;
+	*width = surfaceResolution.width;
+	*height = surfaceResolution.height;
+
+	VkSwapchainCreateInfoKHR ssci = {};
+
+	ssci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	ssci.surface = surface;
+	ssci.minImageCount = 2;
+	ssci.imageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+	ssci.imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+	ssci.imageExtent = surfaceResolution;
+	ssci.imageArrayLayers = 1;
+	ssci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	ssci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	ssci.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	ssci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	ssci.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+	ssci.clipped = true;
+	ssci.oldSwapchain = NULL;
+
+	VkResult result = vkCreateSwapchainKHR(device, &ssci, NULL, swapChain);
+
+	if (result == VK_SUCCESS)
+	{
+		std::cout << "Swapchain Created" << std::endl;
+	}
+
+	uint32_t imageCount = 0;
+
+	vkGetSwapchainImagesKHR(device, *swapChain, &imageCount, NULL);
+
+	*presentImages = new VkImage[imageCount];
+
+	result = vkGetSwapchainImagesKHR(device, *swapChain, &imageCount, *presentImages);
+
+	if (result == VK_SUCCESS)
+	{
+		std::cout << "Swap-chain images created" << std::endl;
+	}
+
+	*presentImageViews = new VkImageView[2];
+	for (uint32_t i = 0; i < 2; i++)
+	{
+		VkImageViewCreateInfo ivci = {};
+		ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		ivci.format = VK_FORMAT_B8G8R8A8_UNORM;
+		ivci.components.r = VK_COMPONENT_SWIZZLE_R;
+		ivci.components.g = VK_COMPONENT_SWIZZLE_G;
+		ivci.components.b = VK_COMPONENT_SWIZZLE_B;
+		ivci.components.a = VK_COMPONENT_SWIZZLE_A;
+		ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		ivci.subresourceRange.baseMipLevel = 0;
+		ivci.subresourceRange.levelCount = 1;
+		ivci.subresourceRange.baseArrayLayer = 0;
+		ivci.subresourceRange.layerCount = 1;
+		ivci.image = (*presentImages)[i];
+
+		result = vkCreateImageView(device, &ivci, NULL, &(*presentImageViews)[i]);
+
+		if (result == VK_SUCCESS)
+		{
+			std::cout << "Imageview " << i+1 << " created" << std::endl;
+		}
+	}
 }
